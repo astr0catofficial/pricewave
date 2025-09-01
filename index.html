@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chatbot UI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-image: url('https://images.unsplash.com/photo-1519681393784-d120267933ba?q=80&w=2070&auto=format&fit=crop');
+            background-size: cover;
+            background-position: center;
+        }
+
+        /* Frosted glass effect */
+        .frosted-glass {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        /* Custom scrollbar for a cleaner look */
+        .chat-messages::-webkit-scrollbar {
+            width: 6px;
+        }
+        .chat-messages::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+        .chat-messages::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 10px;
+        }
+        .chat-messages::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.5);
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen bg-gray-900 text-white p-4">
+
+    <div id="chatbot-container" class="w-full max-w-lg h-[90vh] max-h-[700px] flex flex-col rounded-2xl shadow-2xl frosted-glass overflow-hidden">
+        <!-- Header -->
+        <header class="bg-white/10 p-4 border-b border-white/20 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-12 h-12 bg-gray-800 rounded-full flex items-center justify-center">
+                   <i class="fa-solid fa-robot text-2xl text-cyan-300"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold">AI Assistant</h1>
+                    <p class="text-sm text-green-300 flex items-center">
+                        <span class="w-2 h-2 bg-green-400 rounded-full mr-2 animate-pulse"></span>
+                        Online
+                    </p>
+                </div>
+            </div>
+        </header>
+
+        <!-- Chat Messages -->
+        <div id="chat-messages" class="flex-1 p-6 space-y-4 overflow-y-auto chat-messages">
+            <!-- Initial Bot Message -->
+            <div class="flex items-start gap-3">
+                <div class="w-8 h-8 bg-gray-800 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                   <i class="fa-solid fa-robot text-lg text-cyan-300"></i>
+                </div>
+                <div class="bg-white/10 p-3 rounded-lg max-w-xs md:max-w-md">
+                    <p class="text-sm">Hello! How can I assist you today?</p>
+                </div>
+            </div>
+            <!-- More messages will be appended here -->
+        </div>
+
+        <!-- Input Area -->
+        <footer class="p-4 border-t border-white/20">
+            <div class="flex items-center bg-white/10 rounded-full p-2">
+                <input type="text" id="user-input" class="flex-1 bg-transparent px-4 text-sm focus:outline-none" placeholder="Type your message...">
+                <button id="send-btn" class="bg-cyan-500 hover:bg-cyan-400 text-gray-900 rounded-full w-10 h-10 flex items-center justify-center transition-all duration-300">
+                    <i class="fa-solid fa-paper-plane"></i>
+                </button>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        const chatMessages = document.getElementById('chat-messages');
+        const userInput = document.getElementById('user-input');
+        const sendBtn = document.getElementById('send-btn');
+        
+        // --- IMPORTANT: Replace this with your actual Pipedream webhook URL ---
+        const PIPEDREAM_WEBHOOK_URL = 'https://eow5f795h1w2v1n.m.pipedream.net'; // Example URL
+
+        // Function to add a message to the chat window
+        const addMessage = (sender, message) => {
+            const messageElement = document.createElement('div');
+            messageElement.classList.add('flex', 'items-start', 'gap-3');
+            
+            let messageContent = '';
+            if (sender === 'user') {
+                messageElement.classList.add('justify-end');
+                messageContent = `
+                    <div class="bg-cyan-500/80 p-3 rounded-lg max-w-xs md:max-w-md">
+                        <p class="text-sm text-white">${message}</p>
+                    </div>
+                    <div class="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                       <i class="fa-solid fa-user text-lg text-white"></i>
+                    </div>
+                `;
+            } else { // Bot
+                messageElement.innerHTML = `
+                    <div class="w-8 h-8 bg-gray-800 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                       <i class="fa-solid fa-robot text-lg text-cyan-300"></i>
+                    </div>
+                    <div class="bg-white/10 p-3 rounded-lg max-w-xs md:max-w-md">
+                        <p class="text-sm">${message}</p>
+                    </div>
+                `;
+            }
+            messageElement.innerHTML = messageContent;
+            chatMessages.appendChild(messageElement);
+            chatMessages.scrollTop = chatMessages.scrollHeight; // Auto-scroll to the bottom
+        };
+        
+        // Function to show typing indicator
+        const showTypingIndicator = () => {
+            const typingElement = document.createElement('div');
+            typingElement.id = 'typing-indicator';
+            typingElement.classList.add('flex', 'items-start', 'gap-3');
+            typingElement.innerHTML = `
+                <div class="w-8 h-8 bg-gray-800 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                   <i class="fa-solid fa-robot text-lg text-cyan-300"></i>
+                </div>
+                <div class="bg-white/10 p-3 rounded-lg flex items-center space-x-1">
+                    <span class="w-2 h-2 bg-white/50 rounded-full animate-pulse" style="animation-delay: 0s;"></span>
+                    <span class="w-2 h-2 bg-white/50 rounded-full animate-pulse" style="animation-delay: 0.2s;"></span>
+                    <span class="w-2 h-2 bg-white/50 rounded-full animate-pulse" style="animation-delay: 0.4s;"></span>
+                </div>
+            `;
+            chatMessages.appendChild(typingElement);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        };
+
+        // Function to remove typing indicator
+        const hideTypingIndicator = () => {
+            const typingIndicator = document.getElementById('typing-indicator');
+            if (typingIndicator) {
+                typingIndicator.remove();
+            }
+        };
+
+        // Function to handle sending the message
+        const handleSendMessage = async () => {
+            const message = userInput.value.trim();
+            if (message === '') return;
+
+            addMessage('user', message);
+            userInput.value = '';
+            showTypingIndicator();
+
+            try {
+                const response = await fetch(PIPEDREAM_WEBHOOK_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        message: message
+                    }),
+                });
+
+                hideTypingIndicator();
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                
+                // Assuming the webhook returns a JSON object with a 'reply' field
+                const botReply = data.reply || "Sorry, I couldn't process that.";
+                addMessage('bot', botReply);
+
+            } catch (error) {
+                console.error('Error sending message:', error);
+                hideTypingIndicator();
+                addMessage('bot', "Oops! Something went wrong. Please check the console for errors.");
+            }
+        };
+
+        // Event Listeners
+        sendBtn.addEventListener('click', handleSendMessage);
+        userInput.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+                handleSendMessage();
+            }
+        });
+
+    </script>
+</body>
+</html>
